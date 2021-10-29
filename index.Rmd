@@ -16,7 +16,7 @@ bibliography: biblio.bib
 nocite: |
   @*
 link-citations: true
-github: "neocarto/ironcurtain"
+github: "rzine-reviews/ironcurtain"
 # gitlab: "gitlab.huma-num.fr/author/repository"
 # doi: "10.5281/zenodo.4554776"
 licence: "by-sa"
@@ -331,7 +331,7 @@ template = function(file) {
     theme = theme,
     expandBB = c(-.02, 0, 0.05, 0)
   )
-  
+
   mf_map(
     ocean,
     col = "#9acbe3",
@@ -785,13 +785,19 @@ dev.off()
 
 ![](figures/ironcurtain.png)
 Et voilà. Même si cela nécessite quelques tâtonnements pour positionner les différents éléments, nous venons de faire la démonstration qu'il est donc possible de faire de la cartographie d'édition, stylisée et mise en page, uniquement avec R :-)
+<br>
+
+
 
 # Bibliographie {-}
 
 <div id="refs"></div>
 
+<br/>
+
 
 # Annexes {-}
+
 
 
 ## Info session  {-}
@@ -804,28 +810,33 @@ kableExtra::kable_styling(knitr::kable(rzine::sessionRzine()[[2]], row.names = F
 
 ## Citation {-}
 
-```{r ReadCitation, echo=FALSE}
-citationRzine <- bibtex::read.bib("cite.bib")
+```{r Citation, echo=FALSE}
+
+rref <- bibentry(
+   bibtype = "misc",
+   title = "Le nouveau rideau de fer",
+   subtitle = "Un exemple de carte en 2.5D",
+   author = c("Nicolas Lambert"),
+   doi = "10.48645/xxxxx",
+   url = "https://rzine.fr/publication_rzine/xxxxxxxxx/",
+   keywords ="FOS: Other social sciences",
+   language = "fr",
+   publisher = "FR2007 CIST",
+   year = 2021,
+   copyright = "Creative Commons Attribution Share Alike 4.0 International")
+
 ``` 
 
-`r capture.output(print(citationRzine[1]))`
+`r capture.output(print(rref))`
 
-### Format BibTex : {-}
+### BibTex : {-}
 
 ```{r generateBibTex, echo=FALSE}
-cat(readLines('cite.bib'), sep = '\n')
+
+writeLines(toBibtex(rref), "cite.bib")
+toBibtex(rref)
+
 ``` 
 
 <br/>
 
-
-## Glossaire {- #endnotes}
-
-```{js, echo=FALSE}
-
-$(document).ready(function() {
-  $('.footnotes ol').appendTo('#endnotes');
-  $('.footnotes').remove();
-});
-
-```

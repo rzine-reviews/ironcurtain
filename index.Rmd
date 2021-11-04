@@ -182,6 +182,8 @@ nuts <- merge(
         all.x = TRUE)
 ```
 
+# Modèle de mise en page
+
 ## Couches d'habillage
 
 Pour compléter la carte, nous utilisons des couches géographiques proposées par le package `rnaturalearth`.
@@ -311,7 +313,7 @@ mf_map(fr, col = "#6eb1db", border = "white", lwd = 0.1, add = TRUE)
 **L'ajout d'un nombre entre 01 et 99 à la fin d'un code hexadécimal permet d'appliquer un pourcentage d'opacité à la couleur désignée**. Par exemple, le code hexadécimal "#ffffff<b>40</b>" affiche du blanc avec une opacité de 40 %.</div>
 
 
-## Modèle de mise en page
+## Fonction `template()`
 
 A partir des différentes couches géographiques construites, recadrées et reprojetées, nous réalisons à présent un modèle de mise en page cartographique. 
 
@@ -704,58 +706,71 @@ extrude <- function(id){
 }
 ```
 
-On applique la fonction à toutes les lignes de la façon suivante
+Nous pouvons appliquer la fonction à toutes les lignes en utilisant une boucle *for*. Voici un exemple d'utilisation de la fonction `extrude()`, combiné avec l'utilisation de `template()` et l'**ajout d'une légende pour la représentation des discontinuités**.
 
 ```{r, eval = TRUE, message = FALSE, warning = FALSE, results = "hide"}
 template("figures/fig4.png")
 
-
-### APPLY ???
-
+# BOUCLE for pour appliquer la fonction extrude() à toutes les lignes
 for (i in 1:length(disc$height))
 {
   extrude(i)
 }
 
-# Habillage
+# TEXTE de la légende pour les discontinuités
+# Utilisation du facteur k pour un placement précis des éléments
 d = 0.75 * k
-text(14.4*k - d, y = 57.4*k, "Discontinuities", cex = 0.6,
-     pos = 4, font = 2, col="#404040")     
-text(15.5*k - d, y = 56.6*k, "Between two regions of the same country",
+# Titre légende
+text(14.4*k - d, y = 57.4*k, "Discontinuities", 
+     cex = 0.6, pos = 4, font = 2, col="#404040")     
+# Intitulé classe 1
+text(15.5*k - d, y = 56.6*k, "Between two regions of the same country", 
      cex = 0.4, pos = 4, font = 1, col="#404040")   
+# Intitulé classe 2
 text(15.5*k - d, y = 55.7*k, "Between two regions of two different countries",
      cex = 0.4, pos = 4, font = 1, col="#404040")   
+# Description
 text(15.5*k - d, y = 55.3*k,
      "(The height is proportional to the value of the dicontinuity)",
-     cex = 0.4, pos = 4, font = 1, col="#404040")   
+     cex = 0.4, pos = 4, font = 1, col="#404040") 
+# NB
 text(10.7*k, y = 54.4*k,
      "NB: only the 10% highest discontinuities are represented on the map.",
      cex = 0.4, pos = 4, font = 3, col="#404040")   
 
-# Lignes
 
+# SYMBOLE pour la légende
+# Récupération d'un ligne infra-nationale presque horizontale
 myline <- disc[disc$id == "TR21_BG341",]
+# On duplique a ligne
+myline2 <- myline
+
+# Translation de la ligne pour la positionner dans la légende (Classe 1)
 st_geometry(myline) <- st_geometry(myline) + c(4.2*k, 5*k)
+# Translation de la ligne pour la positionner dans la légende (Classe 2) 
 myline2 <- myline
 st_geometry(myline2) <- st_geometry(myline2) + c(0, 1.5*k)
 
-# discontinuités entre deux régions de deux pays différentes
-  
-  plot(myline, col= "#66666690",lwd = 0.5 ,add= T)
-  for (i in 1:40){
+# Symbole de légende pour les discontinuités entre deux pays
+plot(myline, col= "#66666690",lwd = 0.5 ,add= T)
+# 40 itération de la ligne
+for (i in 1:40){
     myline <- st_geometry(myline) + c(0,delta)
     plot(st_geometry(myline), col= "#66666690",lwd = 0.5 ,add= T)  
-  }
-  plot(myline, col= "#cf0e00",lwd = 1.2 ,add= T)
+}
+# Dernière ligne en rouge
+plot(myline, col= "#cf0e00",lwd = 1.2 ,add= T)
 
-# discontinuités entre deux régions d'un même pays
+# Symbole de légende pour les discontinuités infra-nationale
+plot(myline2, col= "#66666690",lwd = 0.5 ,add= T)
+# 8 itération de la ligne
+for (i in 1:8){
+  myline2 <- st_geometry(myline2) + c(0,delta)
+  plot(st_geometry(myline2), col= "#66666690",lwd = 0.5 ,add= T)  
+}
+plot(myline2, col= "#66666690",lwd = 0.5 ,add= T)
 
-  plot(myline2, col= "#66666690",lwd = 0.5 ,add= T)
-  for (i in 1:8){
-    myline2 <- st_geometry(myline2) + c(0,delta)
-    plot(st_geometry(myline2), col= "#66666690",lwd = 0.5 ,add= T)  
-  }
-  plot(myline2, col= "#66666690",lwd = 0.5 ,add= T)
+# Ne pas oublier
 dev.off()
 ```
 
@@ -763,103 +778,101 @@ dev.off()
 
 # Carte finale
 
+Les données sont prêtes à être cartographiées. La variable a représenter a été discrétisée. Le modèle de mise en page et la représentation des discontinuités en 2,5D ont été encapsulés dans des fonctions. Nous avons donc tous les éléments pour générer la carte souhaitée :
+
 ```{r, eval = TRUE, message = FALSE, warning = FALSE, results = "hide"}
+# Modèle de mise page
 template("figures/ironcurtain.png")
 
-mf_map(
-  x = nuts,
-  var = "GDPINH_2016",
-  type = "choro",
-  breaks = bks,
-  pal = cols,
-  lwd = 0.2,
-  leg_pos = "n",
-  add = TRUE
-)
+# Carte choroplèthe
+mf_map(x = nuts,
+       var = "GDPINH_2016",
+       type = "choro",
+       breaks = bks,
+       pal = cols,
+       lwd = 0.2,
+       leg_pos = "n",
+       add = TRUE)
 
-mf_legend(
-  type = "choro",
-  pos = c(11 * k, 59.05 * k),
-  title = "",
-  val = bks,
-  val_cex = 0.4,
-  pal = cols,
-  fg = "#333333",
-  cex = 0.85,
-  border = "red",
-  val_rnd = 0,
-  no_data = FALSE,
-  frame = FALSE
-)
+# Légende carte choroplèthe
+mf_legend(type = "choro",
+          pos = c(11 * k, 59.05 * k),
+          title = "",
+          val = bks,
+          val_cex = 0.4,
+          pal = cols,
+          fg = "#333333",
+          cex = 0.85,
+          border = "red",
+          val_rnd = 0,
+          no_data = FALSE,
+          frame = FALSE)
 
-text(
-  10.5 * k,
-  y = 59.1 * k,
-  "Gross Domestic Product",
-  cex = 0.75,
-  pos = 4,
-  font = 2,
-  col = "#404040"
-)
-text(
-  10.5 * k,
-  y = 58.7 * k,
-  "(in € per inh. in 2016)",
-  cex = 0.55,
-  pos = 4,
-  font = 1,
-  col = "#404040"
-)
+# Titre légende carte choroplèthe
+text(10.5 * k,
+     y = 59.1 * k,
+     labels = "Gross Domestic Product",
+     cex = 0.75,
+     pos = 4,
+     font = 2,
+     col = "#404040")
 
-for (i in 1:length(disc$height))
-{
-  extrude(i)
-}
+# Sous-titre légende carte choroplèthe
+text(10.5 * k,
+     y = 58.7 * k,
+     labels = "(in € per inh. in 2016)",
+     cex = 0.55,
+     pos = 4,
+     font = 1,
+     col = "#404040")
 
-# Habillage
+# Construction discontinuités
+for (i in 1:length(disc$height)){extrude(i)}
+
+# Texte légende discontinuités
 d = 0.75 * k
-text(14.4*k - d, y = 57.4*k, labels = "Discontinuities", cex = 0.6,
-     pos = 4, font = 2, col="#404040")     
-text(15.5*k - d, y = 56.6*k, labels = "Between two regions of the same country",
+text(14.4*k - d, y = 57.4*k, "Discontinuities", 
+     cex = 0.6, pos = 4, font = 2, col="#404040")     
+text(15.5*k - d, y = 56.6*k, "Between two regions of the same country", 
      cex = 0.4, pos = 4, font = 1, col="#404040")   
-text(15.5*k - d, y = 55.7*k, labels = "Between two regions of two different countries",
+text(15.5*k - d, y = 55.7*k, "Between two regions of two different countries",
      cex = 0.4, pos = 4, font = 1, col="#404040")   
 text(15.5*k - d, y = 55.3*k,
-    labels = "(The height is proportional to the value of the dicontinuity)",
-     cex = 0.4, pos = 4, font = 1, col="#404040")   
+     "(The height is proportional to the value of the dicontinuity)",
+     cex = 0.4, pos = 4, font = 1, col="#404040") 
 text(10.7*k, y = 54.4*k,
-     labels = "NB: only the 10% highest discontinuities are represented on the map.",
-     cex = 0.4, pos = 4, font = 3, col="#404040")   
+     "NB: only the 10% highest discontinuities are represented on the map.",
+     cex = 0.4, pos = 4, font = 3, col="#404040")  
 
-# Lignes
-
+# Symbole légende discontinuités
 myline <- disc[disc$id == "TR21_BG341",]
+myline2 <- myline
 st_geometry(myline) <- st_geometry(myline) + c(4.2*k, 5*k)
 myline2 <- myline
 st_geometry(myline2) <- st_geometry(myline2) + c(0, 1.5*k)
 
-# discontinuités entre deux régions de deux pays différentes
-  
-  plot(myline, col= "#66666690",lwd = 0.5 ,add= T)
-  for (i in 1:40){
+plot(myline, col= "#66666690",lwd = 0.5 ,add= T)
+for (i in 1:40){
     myline <- st_geometry(myline) + c(0,delta)
     plot(st_geometry(myline), col= "#66666690",lwd = 0.5 ,add= T)  
-  }
-  plot(myline, col= "#cf0e00",lwd = 1.2 ,add= T)
+}
+plot(myline, col= "#cf0e00",lwd = 1.2 ,add= T)
 
-# discontinuités entre deux régions d'un même pays
+plot(myline2, col= "#66666690",lwd = 0.5 ,add= T)
+for (i in 1:8){
+  myline2 <- st_geometry(myline2) + c(0,delta)
+  plot(st_geometry(myline2), col= "#66666690",lwd = 0.5 ,add= T)  
+}
+plot(myline2, col= "#66666690",lwd = 0.5 ,add= T)
 
-  plot(myline2, col= "#66666690",lwd = 0.5 ,add= T)
-  for (i in 1:8){
-    myline2 <- st_geometry(myline2) + c(0,delta)
-    plot(st_geometry(myline2), col= "#66666690",lwd = 0.5 ,add= T)  
-  }
-  plot(myline2, col= "#66666690",lwd = 0.5 ,add= T)
+# Clôture graphique - enregistrement png
 dev.off()
 ```
 
 ![](figures/ironcurtain.png)
-Et voilà. Même si cela nécessite quelques tâtonnements pour positionner les différents éléments, nous venons de faire la démonstration qu'il est donc possible de faire de la cartographie d'édition, stylisée et mise en page, uniquement avec R :-)
+
+<br>
+**Et voilà. Même si cela nécessite quelques tâtonnements pour positionner les différents éléments, nous venons de faire la démonstration qu'il est donc possible de faire de la cartographie d'édition, stylisée et mise en page, uniquement avec R :-)**
 <br>
 
 

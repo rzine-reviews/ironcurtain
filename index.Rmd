@@ -41,13 +41,13 @@ knitr::opts_chunk$set(echo=TRUE,
 # Introduction {-}
 
 
-Ce document montre comment réaliser cette carte de discontuités en 2,5D (fausse 3D) joliement mise en page entrièrement dans le langage R. Des versions antérieures de cette carte ont déjà été publiées par le passé, dans le manuel de cartographie [@lambert2016manuel], ou dans Mad Maps [@lambert2019mad] et ont fait l'objet de billets de blog [@lambert2019mise]. Ici, nous entendons prouver qu'il est possible de réaliser ce type de carte sans passer par un logiciel DAO [@lambert2019dessiner]. Les sources et les références sont précisées à la fin du document.
+Ce document montre comment réaliser cette carte de discontinuités en 2,5D (fausse 3D) joliment mise en page avec R. Des versions antérieures de cette carte ont déjà été publiées par le passé, dans le manuel de cartographie [@lambert2016manuel], ou dans Mad Maps [@lambert2019mad] et ont fait l'objet de billets de blog [@lambert2019mise]. Ici, nous entendons prouver qu'il est possible de réaliser ce type de carte sans passer par un logiciel DAO [@lambert2019dessiner]. Les sources et les références sont précisées à la fin du document.
 
 # Préparation des données
 
 ## Packages
 
-Pour réaliser cette carte, nous nous nous appuyons sur 5 packages : le package  `sf` [@sf] pour gérer les objets spatiaux,  le package `mapsf` [@mapsf] pour l'affichage des différentes couches composant la carte, le package `eurostat` [@eurostat] pour les données et le package `rnaturalEarth` [@rnaturalearth] pour quelques couches d'habillages supplémentaires. Le package `scales` [@scales] sera uniquement utilisé pour réaliser une opération de rééchelonnage d'une série statistique.
+Pour réaliser cette carte, nous nous nous appuyons sur 5 packages : le package  `sf` [@sf] pour gérer les objets spatiaux,  le package `mapsf` [@mapsf] pour l'affichage des différentes couches composant la carte, le package `eurostat` [@eurostat] pour les données et le package `rnaturalEarth` [@rnaturalearth] pour quelques couches d'habillages supplémentaires. Le package `scales` [@scales] sera uniquement utilisé pour réaliser le rééchelonnage d'une série statistique.
 
 ```{r, eval = TRUE, message = FALSE, warning = FALSE}
 library("sf")
@@ -59,7 +59,9 @@ library("scales")
 
 ## Données géométriques
 
-Avec le package `eurostat`, nous créons d'un fond de carte hybride avec maillage homogène NUTS2/3. Tous les pays sont au niveau NUTS3 version 2016 sauf l'Autriche, la Belgique, la Suisse, l'Allemagne, la Grèce, les Pays-Bas, la Turquie, l'Irlande, l'Islande et la Norvège. Pour des raisons de disponibilité des données post Brexit, Le Royaume-Uni est au niveau NUTS2 version 2013. 
+Pour commencer, nous créons un fond de carte hybride avec un maillage homogène NUTS2/3^[__La nomenclature NUTS__ ([Nomenclature des unités territoriales statistiques](https://ec.europa.eu/eurostat/fr/web/nuts/background)) est un système hiérarchique de découpage du territoire économique de l'UE à 3 niveaux. Elle sert de référence pour la collecte des statistiques régionales, pour les analyses socio-économiques des régions, pour la définition des politiques régionales de l'UE.] à l'aide du package `eurostat`. 
+
+Le découpage NUTS3 (version 2016) n'est pas disponible pour les pays suivants : Autriche, Belgique, Suisse, Allemagne, Grèce, Pays-Bas, Turquie, Irlande, Islande et Norvège. Nous utiliserons donc le découpage NUTS2 pour ces territoires. Pour des raisons de disponibilité des données post *Brexit*, nous utiliserons le découpage NUTS2 (version 2013) pour le Royaume-Uni. 
 
 Récupération des découpages NUTS de 2016 et construction d'un fond de carte NUTS 2/3 :
 
@@ -75,7 +77,7 @@ nuts2016 <- get_eurostat_geospatial(
 nuts2016_3 <- nuts2016[nuts2016$LEVL_CODE == 3, ]
 nuts2016_2 <- nuts2016[nuts2016$LEVL_CODE == 2, ]
 
-# Liste des pays (code ISO) pour lesquels on s'intéresse aux NUTS2 
+# Liste des pays (code ISO) sans découpage NUTS3 
 N2 <- c("AT", "BE", "CH", "DE", "EL", "NL", "UK", "TR", "IE", "IS", "NO")
 
 # Couche géographique NUTS2/3 en fonction de la liste de pays N2
@@ -85,7 +87,7 @@ nuts <- rbind(nuts2016_2[nuts2016_2$CNTR_CODE %in% N2, ],
 # Suppression des départements d'Outre-mer français
 nuts <- nuts[!nuts$id %in% c("FRY10", "FRY20", "FRY30", "FRY40", "FRY50"), ]
 
-# Suppression du découpage NUTS 2016 pour le Royaume-Uni 
+# Suppression des NUTS 2016 du Royaume-Uni 
 nuts <- nuts[nuts$CNTR_CODE != "UK", ]
 
 # Sélection et renommage de colonnes
@@ -103,7 +105,7 @@ nuts2013 <- get_eurostat_geospatial(
             nuts_level = "2",
             year = "2013")
 
-# Sélection des NUTS2 du Royaume-Uni et renommage de colonnes
+# Sélection des NUTS2 du Royaume-Uni
 uk <- nuts2013[nuts2013$CNTR_CODE == "UK",]
 
 # Sélection et renommage de colonnes
@@ -114,7 +116,7 @@ colnames(uk) <- c("id","name","geometry")
 nuts <- rbind(nuts, uk)
 
 ```
-La couche géographique (objet `sf`) créée est donc une fusion des découpages territoriaux suivants : 
+Le fond de carte (ou couche géographique) crée est donc une fusion des découpages territoriaux suivants : 
 
 ```{r, eval = TRUE, echo = FALSE, message = FALSE, warning = FALSE, fig.height = 3}
 par(mar = c(0, 0, 0, 0), mfrow = c(1, 3))
@@ -150,10 +152,11 @@ gdpinh <- get_eurostat(var, time_format = "num")
 # Sélection de l'unité de mesure et de la date
 gdpinh <- gdpinh[gdpinh$unit == "EUR_HAB",]
 gdpinh <- gdpinh[gdpinh$time == 2016, c("geo","values")]
+
 colnames(gdpinh) <- c("id","GDPINH_2016")
 ```
 
-Les données pour le Royaume-Uni ne sont plus disponibles depuis le *Brexit*. Les données sont également manquantes pour quelques unités territoriales. Nous combinons donc les données issues d'`eurostat` avec des estimations issues de la [base de données ESPON](https://database.espon.eu/). Celles-si ont été préalablement stockées dans dans le fichier *missing.csv* mis à disposition (cf. ci-dessous). 
+Les données pour le Royaume-Uni ne sont plus disponibles depuis le *Brexit*. Les données sont également manquantes pour quelques unités territoriales. Nous combinons donc les données issues d'`eurostat` avec des estimations issues de la [base de données ESPON](https://database.espon.eu/). Celles-si ont été préalablement stockées dans dans le fichier *missing.csv* mis à disposition. 
 
 <br>  
 <p class="center">[<span style="font-size: 230%;" class="glyphicon glyphicon-download-alt"></span> <br/> Télécharger les données](https://rzine.fr/docs/20191125_ironcurtain/data.zip)</p>
@@ -162,7 +165,9 @@ Les données pour le Royaume-Uni ne sont plus disponibles depuis le *Brexit*. Le
 Nous combinons les deux jeux de données pour avoir une couverture exhaustive de l'espace à représenter :
 
 ```{r, eval = TRUE, message = FALSE, warning = FALSE}
+# Import des donnèes
 missing <- read.csv("data/missing.csv")
+# Fusion des deux tableaux
 gdpinh <- rbind(gdpinh, missing)
 ```
 
@@ -186,7 +191,7 @@ nuts <- merge(
 
 ## Couches d'habillage
 
-Pour compléter la carte, nous utilisons des couches géographiques proposées par le package `rnaturalearth`.
+Pour habiller la carte, nous utilisons des couches géographiques mises à disposition par le package `rnaturalearth`.
 
 ```{r, eval = TRUE, message = FALSE, warning = FALSE, results = "hide"}
 land <- ne_download(
@@ -195,7 +200,7 @@ land <- ne_download(
         category = "physical",
         returnclass = "sf")
 ```
-Affichage de la couche d'habillage avec la fonction `mf_map` du package `mapsf`.
+Il est possible d'afficher de la couche d'habillage avec la fonction `mf_map` du package `mapsf`.
 
 ```{r, eval = TRUE, message = FALSE, warning = FALSE}
 mf_map(land, border = NA, col = "#6eb1db")
@@ -230,7 +235,7 @@ mf_map(graticule, col = "#6eb1db")
 
 ## Projection orthographique
 
-Pour donner un effet de rotondité et permettre une représentation en 2.5D, on opte pour une projection orthographique centré sur l'Afrique. Pour éviter tout problème dans l'opération de projection (bug, artefacts, etc.), nous définissons au préalable un rectangle nous servant à découper les différentes couches. 
+Pour donner un effet de rotondité et permettre une représentation en 2.5D, on opte pour une projection orthographique centrée sur l'Afrique. Pour éviter tout problème dans l'opération de projection (bug, artefacts, etc.), nous définissons au préalable un rectangle qui servira à découper les différentes couches géographiques. 
 
 ```{r, eval = TRUE, message = FALSE, warning = FALSE, results = "hide"}
 # Construction du rectangle
@@ -240,8 +245,8 @@ bb <- st_as_sfc(x = st_bbox(c(xmin = -50 , xmax = 70, ymin = 20, ymax = 80),
 ```
 
 
-Puis, nous découpons toutes les couches d'habillage en fonction du rectangle préalablement crée.
-Pour que cette opération se passe bien, nous utilisons la fonction `sf_use_s2` du package `sf` en paramétrant l'argument `use_s2` en `FALSE` pour faire comme si les latitudes et longitudes étaient des coordonnées euclidiennes. Une fois les intersections effectuées, nous réutilisons cette fonction en paramétrant l'argument `use_s2` en `TRUE`.
+Nous pouvons ensuite découper toutes les couches d'habillage en fonction du rectangle préalablement crée.
+Pour que cette opération se passe bien, nous utilisons la fonction `sf_use_s2` du package `sf` en paramétrant l'argument `use_s2` en `FALSE` pour faire comme si les latitudes et longitudes étaient des coordonnées euclidiennes. Une fois les intersections effectuées, nous réexécutons cette fonction en paramétrant l'argument `use_s2` en `TRUE`.
 
 ```{r, eval = TRUE, message = FALSE, warning = FALSE, results = "hide"}
 sf_use_s2(FALSE)
@@ -255,7 +260,7 @@ graticule <- st_intersection(graticule, bb)
 sf_use_s2(TRUE)
 ```
 
-Nous projetons ensuite toutes les couches géographiques crées dans une projection orthographique centrée sur l'Afrique (10° de latitude nord et 15° de longitude). 
+Nous projetons ensuite toutes les couches géographiques crées, dans une projection orthographique centrée sur l'Afrique (10° de latitude nord et 15° de longitude). 
 
 ```{r, eval = TRUE, message = FALSE, warning = FALSE, results = "hide"}
 # Définition de la projection en format "proj-strings" (PROJ.4) 
@@ -269,7 +274,7 @@ graticule <-  st_transform(graticule, ortho)
 nuts <- st_transform(nuts, ortho)
 ```
 
-Affichage de l'ensemble des couches recadrées et projetées, en utilisant des fonctions du package `mapsf`.
+Affichons de l'ensemble des couches recadrées et projetées pour voir le résultat :
 
 ```{r, eval = TRUE, message = FALSE, warning = FALSE}
 par(mar = c(0, 0, 0, 0), mfrow = c(2, 2))
@@ -290,10 +295,10 @@ mf_title("nuts", bg = "#6eb1db")
 
 ## Effet d'ombrage 
 
-On peut générer un effet d'ombrage en agrégeant les régions NUTS et en effectuant des déplacements successifs avec de la transparence. Ci-dessous, un exemple sur la France métropolitaine :
+On peut générer un effet d'ombrage en agrégeant les régions NUTS en un seul polygone, puis en affichant plusieurs fois ce polygone avec de la transparence et un léger décalage dans l'espace. Ci-dessous, un exemple sur la France métropolitaine :
 
 ```{r, eval = TRUE, message = FALSE, warning = FALSE}
-# Union de l'ensemble des entités de la couche géographique nuts
+# Union de l'ensemble des entités de la couche géographique 'nuts'
 fr <- st_union(nuts[substr(nuts$id, 1, 2) == "FR", ])
 
 # Paramétrage des marges de la fenêtre graphique
@@ -315,9 +320,9 @@ mf_map(fr, col = "#6eb1db", border = "white", lwd = 0.1, add = TRUE)
 
 ## Fonction `template()`
 
-A partir des différentes couches géographiques construites, recadrées et reprojetées, nous réalisons à présent un modèle de mise en page cartographique. 
+A partir des différentes couches géographiques construites, recadrées et reprojetées, nous allons à présent réaliser un modèle de mise en page cartographique. 
 
-Pour cela, nous définissons précisément l'emprise de la carte dans le système de coordonnées de la projection. Les coordonnées étant en mètres, nous utilisons un facteur 100 000 (variable k) qui nous permet de manipuler des chiffres plus petits avec un niveau de précision satisfaisant. Nous utiliserons également ce facteur k pour positionner les différents éléments d'habillage de la carte. 
+Pour cela, nous définissons précisément l'emprise de la carte dans le système de coordonnées de la projection. Les coordonnées étant en mètres, nous utilisons un facteur 100 000 (variable k) qui nous permet de manipuler de petits chiffres avec un niveau de précision satisfaisant. Nous utiliserons également ce facteur k pour positionner les différents éléments d'habillage de la carte. 
 
 ```{r, eval = TRUE, message = FALSE, warning = FALSE}
 
@@ -333,13 +338,13 @@ bb <- st_as_sfc(x= st_bbox(c(xmin = extent[1], xmax = extent[3], ymin = extent[2
 
 ```
 
-On crée ensuite la fonction `template()` qui contient le modèle de mise en page souhaité. Ce modèle est construit à l'aide de fonctions mises à disposition par le package `mapsf`.
+On crée ensuite la fonction `template()` qui contiendra l'ensemble de la mise en page souhaitée. Ce modèle est construit à l'aide de fonctions du package `mapsf`.
 
 <div class="alert alert-danger" role="alert">
-Une fonction d'export est incluse dans `template()`. <b>Le résultat de cette fonction est donc une sortie graphique au format png, directement enregistrée sur votre machine.</b>
-<b>Ainsi, l'utilisation de cette fonction doit obligatoirement être couplée avec la fonction</b>  `dev.off()`qui permet de d'éteindre la fenêtre graphique et de lancer l'enregistrement de son contenu dans un fichier image.
+Une fonction d'export de la carte est incluse dans `template()`. <b>Le résultat de cette fonction est donc une sortie graphique au format png, directement enregistrée sur votre machine.</b>
+<b>Ainsi, l'utilisation de cette fonction doit obligatoirement être couplée avec la fonction</b>  `dev.off()`qui permet de fermer le périphérique graphique et de lancer l'enregistrement de son contenu dans un fichier.
 
-L'intégration d'un export automatique de la carte dans la fonction `template()` <b>permet de contrôler précisément les marges et le dimensionnement de la figure générée</b>, quelque soit la taille de la fenêtre graphique.</div>
+L'intégration d'un export automatique de la carte dans la fonction `template()` <b>permet de parfaitement contrôler les marges et le dimensionnement de la carte produite</b>, quelque soit la taille de sa fenêtre graphique.</div>
 
 ```{r, eval = TRUE, message = FALSE, warning = FALSE}
 
@@ -424,7 +429,7 @@ Et voilà le résultat :-)
 
 ```{r, eval = TRUE, message = FALSE, warning = FALSE, results = "hide"}
 # Indiquez le nom du fichier png crée
-# Utilisez dev.off() pour clôturer l'export et l'enregistrement du fichier
+# Utilisez dev.off() pour clôturer l'enregistrement du fichier
 template("figures/fig1.png")
 dev.off()
 ```
@@ -433,17 +438,17 @@ dev.off()
 
 **Le résultat ne s'affiche pas dans la fenêtre graphique. Il est directement enregistré en format png dans le répertoire souhaité.**
 
-# Carte choroplèthe
+# Carte choroplèthe^[__La carte choroplèthe__ est le type le plus usuel de carte statistique. Il s’agit d’une représentation de quantités relatives à des espaces, ou aires géographiques, par le moyen d’une « échelle » de tons gradués.]
 
-Maintenant que le modèle de mise en page est reproductible avec la fonction `template()` précédemment créée, penchons-nous sur la représentation cartographique du PIB par habitant.
+Maintenant que le modèle de mise en page est facilement reproductible avec la fonction `template()`, penchons-nous sur la représentation cartographique du PIB par habitant.
 
-## Choix des classes et des couleurs
+## Discrétiser la variable
 
-Nous utilisons la fonction `mf_get_breaks()` pour discrétiser notre distribution statistique.
+Afin de cartographier cette variable quantitative relative, nous devons commencer par discrétiser la distribution statistique par classe de valeurs. Pour cela, nous utilisons la fonction `mf_get_breaks()` du package `mapsf`.
 
 ```{r, eval = TRUE, message = FALSE, warning = FALSE}
 
-# Discrétisation par quantile
+# Discrétisation par quantile (calcul des bornes de classes)
 bks <- mf_get_breaks(x = nuts$GDPINH_2016,
                      nbreaks = 6,
                      breaks = "quantile")
@@ -457,9 +462,9 @@ cols <- c("#50b160",
           "#e97d40")
 ```
 
-## Réalisation de la carte
+## Représentation graphique
 
-Nous pouvons alors facilement cartographier le PIB par habitant en utilisant la fonction de mise en page `template()` puis la fonction `mf_map()` pour représenter la variable souhaitée.
+Nous pouvons ensuite facilement cartographier le PIB par habitant en utilisant la fonction de mise en page `template()` puis la fonction `mf_map()` pour représenter la variable souhaitée.
 
 ```{r, eval = TRUE, message = FALSE, warning = FALSE, results = "hide"}
 
@@ -516,18 +521,27 @@ dev.off()
 
 # Discontinuités
 
-La première étape pour cartographier les discontinuités spatiales est de récupérer les frontières entre les régions NUTS.
-Pour cela, nous calculons une petite zone tampon (pour éliminer les éventuelles erreurs topologiques) et effectuons une auto-intersection des polygones de la couche 'nuts'. Nous définissons les géométries de sortie en MULTILINESTRING. 
+La première étape pour cartographier les discontinuités spatiales, est de récupérer les frontières entre les régions NUTS.
+
+## Récupérer les frontières
+
+Pour cela, il suffit de réaliser une auto-intersection des NUTS (polygones de la couche 'nuts'). Afin d'éviter d'éventuelles erreurs topologiques, il est préférable de calculer une petite zone tampon autour des polygones avant réaliser l'intersection spatiale. Les géométries générées (lignes) doivent par la suite être définies en MULTILINESTRING. 
 
 ```{r, eval = TRUE, message = FALSE, warning = FALSE}
 
-# Auto-intersection de la couche NUTS (avec buffer de 5m)
+# Auto-intersection de la couche NUTS (avec zone tampon de 5m)
 nuts.borders  <- st_intersection(st_buffer(nuts, 5), st_buffer(nuts, 5)) 
 
 # Transformation des géométries en 'MULTILINESTRING'
 nuts.borders  <- st_cast(nuts.borders ,"MULTILINESTRING")
 
-# Suppression des intersections entre les mêmes polygones
+```
+
+Il est ensuite nécessaire de nettoyer la couche géographique et de créer un identifiant unique pour chaque ligne (frontière) détectée.
+
+```{r, eval = TRUE, message = FALSE, warning = FALSE}
+
+# Suppression des intersections entre un même polygone
 nuts.borders  <- nuts.borders [nuts.borders $id != nuts.borders $id.1, ] 
 
 # Construction d'un identifiant unique pour chaque frontière
@@ -538,7 +552,9 @@ rownames(nuts.borders) <- nuts.borders$id
 nuts.borders  <- nuts.borders [,c("id","id1","id2","geometry")]
 ```
 
-Puis, nous effectuons une double jointure pour relier à chaque frontière NUTS les données de PIB par habitant des régions limitrophes.
+## Mesurer les discontinuités
+
+Nous pouvons maintenant effectuer une double jointure pour relier à chaque frontière NUTS les données de PIB par habitant des régions limitrophes.
 
 ```{r, eval = TRUE, message = FALSE, warning = FALSE}
 
@@ -546,12 +562,16 @@ Puis, nous effectuons une double jointure pour relier à chaque frontière NUTS 
 vals <- st_set_geometry(x = nuts[, c("id","GDPINH_2016")], 
                         value = NULL)
 
-# Double jointure pour récupérer les valeurs des deux entités limitrophes
+# Double jointure pour récupérer les valeurs des deux NUTS limitrophes
 nuts.borders <- merge (x = nuts.borders, y = vals, by.x = "id1", by.y = "id", all.x = T)
 nuts.borders <- merge (x = nuts.borders, y = vals, by.x = "id2", by.y = "id", all.x = T)
 ```
 
-Nous calculons pour chaque frontière une valeur de discontinuité. Ici, discontinuités relatives :
+Pour chaque frontière (ligne), nous calculons une valeur de discontinuité relative :
+
+$$
+Discontinuité~relative = \frac{{PIB~par~habitant~de~la~région~A}}{{PIB~par~habitant~de~la~région~B}}
+$$
 
 ```{r, eval = TRUE, message = FALSE, warning = FALSE}
 nuts.borders$disc <- nuts.borders$GDPINH_2016.x / nuts.borders$GDPINH_2016.y
@@ -564,7 +584,7 @@ threshold <- 0.95
 disc <- nuts.borders[nuts.borders$disc >= quantile(nuts.borders$disc,threshold),]
 ```
 
-Affichage des discontinuités sélectionnées dans le modèle de mise en page :
+Affichons les plus fortes discontinuités sélectionnées, avec la mise en page précédemment crée :
 
 ```{r, eval = TRUE, message = FALSE, warning = FALSE, results = "hide"}
 template("figures/fig3.png")
@@ -579,9 +599,9 @@ dev.off()
 
 ![](figures/fig3.png)
 
-On constate que les fortes discontinuités entre les régions européennes suivent très largement le tracé de l'ancien rideau de fer (si on fait abstraction de ancienne frontière RFA/RDA). **C'est cela que nous souhaitons mettre en valeur par un procédé d'extrusion pour rappeler la symbolique du mur**.
+On constate que les fortes discontinuités entre les régions européennes suivent très largement le tracé de l'ancien rideau de fer (si on fait abstraction de ancienne frontière RFA/RDA). **C'est cela que nous souhaitons mettre en valeur par un procédé d'extrusion, pour rappeler la symbolique du mur**.
 
-# Extrusion
+## Extrusion (effet 2.5D)
 
 Pour extruder les lignes, nous procédons de la même façon que pour l'effet d'ombrage ([cf. partie 1.6](#effet-dombrage)). Nous translatons les lignes plusieurs fois en ordonnée (y, vers le haut). Sur la projection orthographique utilisée, cela produit un effet 3D. Le nombre d'itérations et l'écart entre les lignes détermine la hauteur du mur. Exemple pour une frontière :
 
@@ -589,15 +609,15 @@ Pour extruder les lignes, nous procédons de la même façon que pour l'effet d'
 # On sélectionne une ligne (frontière) au hasard
 line <- st_geometry(disc[5, ])
 
-# nombre d'itérations
+# Choix d'un nombre d'itérations
 nb <- 15
 
-# valeur de translation
+# Choix d'une valeur de translation
 delta <- 200
 
 ```
 
-On effectue alors une boucle *for* qui construit 15 ('nb') lignes, décalées de 'delta' à chaque fois.
+On effectue alors une boucle *for* qui construit 'nb' lignes, décalées de 'delta' à chaque fois.
 
 ```{r, eval = TRUE, message = FALSE, warning = FALSE}
 
@@ -674,15 +694,18 @@ for (i in 1:length(disc$disc)){
   
   # Pays 1 == Pays 2 ?
   if (disc$c1[i]== disc$c2[i]) {
+      # 8 itérations
       disc$height[i] <- 8  
+      # Couleur Grise
       disc$col[i] <-"#66666690"
+      # Petite épaisseur
       disc$thickness[i] <- 0.5
       
   }
 }
 ```
 
-Toutes les valeurs à représenter ont été calculées. Nous pouvons alors construire une fonction d'extrusion (représentation graphique) des lignes en fonction des valeurs calculées.
+Toutes les valeurs à représenter sont maintenant calculées et stockées dans l'objet 'disc'. Nous pouvons alors construire une fonction d'extrusion des lignes en fonction de ces valeurs.
 
 ```{r, eval = TRUE, message = FALSE, warning = FALSE}
 
@@ -706,7 +729,7 @@ extrude <- function(id){
 }
 ```
 
-Nous pouvons appliquer la fonction à toutes les lignes en utilisant une boucle *for*. Voici un exemple d'utilisation de la fonction `extrude()`, combiné avec l'utilisation de `template()` et l'**ajout d'une légende pour la représentation des discontinuités**.
+Nous pouvons appliquer cette fonction à toutes les lignes en utilisant une boucle *for*. Voici un exemple d'utilisation de la fonction `extrude()`, combiné avec l'utilisation de `template()` et à l'**ajout d'une légende pour les discontinuités représentées**.
 
 ```{r, eval = TRUE, message = FALSE, warning = FALSE, results = "hide"}
 template("figures/fig4.png")
@@ -739,27 +762,26 @@ text(10.7*k, y = 54.4*k,
      cex = 0.4, pos = 4, font = 3, col="#404040")   
 
 
-# SYMBOLE pour la légende
+# SYMBOLE pour la légende des discontinuités
 # Récupération d'un ligne infra-nationale presque horizontale
-myline <- disc[disc$id == "TR21_BG341",]
+myline1 <- disc[disc$id == "TR21_BG341",]
 # On duplique a ligne
-myline2 <- myline
+myline2 <- myline1
 
-# Translation de la ligne pour la positionner dans la légende (Classe 1)
-st_geometry(myline) <- st_geometry(myline) + c(4.2*k, 5*k)
-# Translation de la ligne pour la positionner dans la légende (Classe 2) 
-myline2 <- myline
+# Translation de la ligne 1 pour la positionner dans la légende (Classe 1)
+st_geometry(myline1) <- st_geometry(myline1) + c(4.2*k, 5*k)
+# Translation de la ligne 2 pour la positionner dans la légende (Classe 2) 
 st_geometry(myline2) <- st_geometry(myline2) + c(0, 1.5*k)
 
 # Symbole de légende pour les discontinuités entre deux pays
-plot(myline, col= "#66666690",lwd = 0.5 ,add= T)
+plot(myline1, col= "#66666690",lwd = 0.5 ,add= T)
 # 40 itération de la ligne
 for (i in 1:40){
-    myline <- st_geometry(myline) + c(0,delta)
-    plot(st_geometry(myline), col= "#66666690",lwd = 0.5 ,add= T)  
+    myline1 <- st_geometry(myline1) + c(0,delta)
+    plot(st_geometry(myline1), col= "#66666690",lwd = 0.5 ,add= T)  
 }
 # Dernière ligne en rouge
-plot(myline, col= "#cf0e00",lwd = 1.2 ,add= T)
+plot(myline1, col= "#cf0e00",lwd = 1.2 ,add= T)
 
 # Symbole de légende pour les discontinuités infra-nationale
 plot(myline2, col= "#66666690",lwd = 0.5 ,add= T)
@@ -776,9 +798,9 @@ dev.off()
 
 ![](figures/fig4.png)
 
-# Carte finale
+# La carte finale
 
-Les données sont prêtes à être cartographiées. La variable a représenter a été discrétisée. Le modèle de mise en page et la représentation des discontinuités en 2,5D ont été encapsulés dans des fonctions. Nous avons donc tous les éléments pour générer la carte souhaitée :
+Le modèle de mise en page et la représentation des discontinuités en 2.5D ont été encapsulés dans des fonctions, et la variable à représenter a été discrétisée. Nous avons donc tous les éléments pour générer la carte finale :
 
 ```{r, eval = TRUE, message = FALSE, warning = FALSE, results = "hide"}
 # Modèle de mise page
@@ -845,18 +867,18 @@ text(10.7*k, y = 54.4*k,
      cex = 0.4, pos = 4, font = 3, col="#404040")  
 
 # Symbole légende discontinuités
-myline <- disc[disc$id == "TR21_BG341",]
-myline2 <- myline
-st_geometry(myline) <- st_geometry(myline) + c(4.2*k, 5*k)
-myline2 <- myline
+myline1 <- disc[disc$id == "TR21_BG341",]
+myline2 <- myline1
+st_geometry(myline1) <- st_geometry(myline1) + c(4.2*k, 5*k)
+myline2 <- myline1
 st_geometry(myline2) <- st_geometry(myline2) + c(0, 1.5*k)
 
-plot(myline, col= "#66666690",lwd = 0.5 ,add= T)
+plot(myline1, col= "#66666690",lwd = 0.5 ,add= T)
 for (i in 1:40){
-    myline <- st_geometry(myline) + c(0,delta)
-    plot(st_geometry(myline), col= "#66666690",lwd = 0.5 ,add= T)  
+    myline1 <- st_geometry(myline1) + c(0,delta)
+    plot(st_geometry(myline1), col= "#66666690",lwd = 0.5 ,add= T)  
 }
-plot(myline, col= "#cf0e00",lwd = 1.2 ,add= T)
+plot(myline1, col= "#cf0e00",lwd = 1.2 ,add= T)
 
 plot(myline2, col= "#66666690",lwd = 0.5 ,add= T)
 for (i in 1:8){
@@ -927,4 +949,17 @@ toBibtex(rref)
 ``` 
 
 <br/>
+
+
+## Glossaire {- #endnotes}
+
+```{js, echo=FALSE}
+
+$(document).ready(function() {
+  $('.footnotes ol').appendTo('#endnotes');
+  $('.footnotes').remove();
+});
+
+```
+
 

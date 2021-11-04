@@ -18,7 +18,7 @@ nocite: |
 link-citations: true
 github: "rzine-reviews/ironcurtain"
 # gitlab: "gitlab.huma-num.fr/author/repository"
-# doi: "10.5281/zenodo.4554776"
+doi: "10.48645/a4ra-yr11"
 licence: "by-sa"
 
 # Only Creative Commons Licence 
@@ -905,8 +905,8 @@ rref <- bibentry(
    title = "Le nouveau rideau de fer",
    subtitle = "Un exemple de carte en 2.5D",
    author = c("Nicolas Lambert"),
-   doi = "10.48645/xxxxx",
-   url = "https://rzine.fr/publication_rzine/xxxxxxxxx/",
+   doi = "10.48645/a4ra-yr11",
+   url = "https://rzine.fr/publication_rzine/20191125_ironcurtain/",
    keywords ="FOS: Other social sciences",
    language = "fr",
    publisher = "FR2007 CIST",

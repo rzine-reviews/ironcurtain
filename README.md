@@ -1,4 +1,4 @@
-# Le nouveau rideau de fer [<img src="https://rzine.fr/img/Rzine_logo.png"  align="right" width="120"/>](http://rzine.fr/)
+# Le nouveau rideau de fer  [<img src="https://rzine.fr/assets/img/rzine.png"  align="right" width="120"/>](http://rzine.fr/)
 ### Un exemple de carte en 2.5D
 **Nicolas Lambert (CNRS, UMS RIATE)**
 <br/>  
